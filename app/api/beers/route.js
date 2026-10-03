@@ -1,4 +1,4 @@
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const res = await fetch('https://api.sampleapis.com/beers/ale', {

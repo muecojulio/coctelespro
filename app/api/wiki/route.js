@@ -1,4 +1,4 @@
-export const revalidate = 86400;
+export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   const title = new URL(request.url).searchParams.get('title') || '';
