@@ -2,7 +2,6 @@ export const metadata = {
   title: 'Cócteles Pro - Calculadora de Bebidas',
   description: 'App para preparar cócteles con lo que tienes, calcular cantidades y costos',
   manifest: '/manifest.json',
-  themeColor: '#1a1a2e',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
