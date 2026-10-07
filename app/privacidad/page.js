@@ -7,14 +7,14 @@ export default function PrivacidadPage() {
   return (
     <main className="app-container" style={{ padding: 20, maxWidth: 720 }}>
       <h1 style={{ color: 'var(--accent, #e94560)', marginBottom: 12 }}>Política de privacidad</h1>
-      <p style={{ color: 'var(--text2)', marginBottom: 16 }}>Última actualización: 29 de septiembre de 2026</p>
+      <p style={{ color: 'var(--text2)', marginBottom: 16 }}>Última actualización: 7 de octubre de 2026</p>
       <section className="card">
         <h2 className="card-title">Responsable</h2>
         <p>Cócteles Pro opera de forma local en tu navegador.</p>
       </section>
       <section className="card">
         <h2 className="card-title">Datos que se guardan</h2>
-        <p>Ingredientes, favoritos, historial, precios y preferencias viven solo en localStorage de este dispositivo. No hay cuenta ni backend de usuarios.</p>
+        <p>Ingredientes, favoritos, historial, precios y preferencias viven solo en localStorage de este dispositivo. No hay cuenta ni backend de usuarios. Las traducciones del catálogo internacional se hacen en tu propio navegador.</p>
       </section>
       <section className="card">
         <h2 className="card-title">APIs de terceros</h2>
