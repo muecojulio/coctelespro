@@ -2,10 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './globals.css';
-import { LOCAL_COCKTAILS } from './cocktails-local';
 import { ActionButton, HorizontalRail, SearchableCombobox } from './components/InteractionPrimitives';
 import { SectionTabs, TabPanel } from './components/AccessibleTabs';
+import {
+  DrinkDetail,
+  DrinkRail,
+  MatchList,
+  CostBreakdown,
+  PriceEditor,
+  ShoppingList,
+  ShareCard,
+} from './components/DrinkViews';
 import { cachedFetch } from '../lib/api-cache';
+import { LOCAL_DRINKS, mergeDrinks, remoteDrinkToDrink, searchDrinks, allCategories } from '../lib/drinks';
+import { INGREDIENTS } from '../lib/data/ingredients';
+import { EXTRA_ALIASES, rankDrinks, unlockSuggestions } from '../lib/pairing';
+import { normalizeText } from '../lib/i18n';
+import { recipeCost, partyPlan, formatMoney, CURRENCIES } from '../lib/costs';
 
 const API = 'https://www.thecocktaildb.com/api/json/v1/1';
 const TABS = [
@@ -15,21 +28,16 @@ const TABS = [
   { id: 'costos', label: 'Costos', icon: '💰' },
 ];
 
-function ings(drink) {
-  const out = [];
-  for (let i = 1; i <= 15; i += 1) {
-    const name = drink[`strIngredient${i}`];
-    if (name) out.push({ name, measure: drink[`strMeasure${i}`] || '' });
-  }
-  return out;
-}
+const STORAGE_KEY = 'cocteles-pro';
+const MAX_MENU_ITEMS = 6;
+const RESULTS_PAGE = 36;
 
-function normalizeSearch(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('es');
-}
+const PANTRY_SUGGESTIONS = Array.from(
+  new Set([
+    ...Object.values(INGREDIENTS).map((ingredient) => ingredient.es),
+    ...Object.keys(EXTRA_ALIASES),
+  ]),
+).sort((a, b) => a.localeCompare(b, 'es'));
 
 function Feedback({ status, children, id }) {
   if (!children) return null;
@@ -47,10 +55,10 @@ function Feedback({ status, children, id }) {
   );
 }
 
-function RecipePicker({ options, selected, onSelect }) {
+function RecipePicker({ options, selected, onSelect, label = 'Bebida de referencia' }) {
   return (
     <SearchableCombobox
-      label="Cóctel de referencia"
+      label={label}
       placeholder="Escribe un nombre o elige una opción…"
       options={options}
       selected={selected}
@@ -64,51 +72,154 @@ export default function Home() {
   const [panelDirection, setPanelDirection] = useState('next');
   const [theme, setTheme] = useState('dark');
   const [storageReady, setStorageReady] = useState(false);
+
+  const [onlineDrinks, setOnlineDrinks] = useState([]);
   const [q, setQ] = useState('');
-  const [results, setResults] = useState(LOCAL_COCKTAILS);
   const [searchStatus, setSearchStatus] = useState('idle');
   const [searchFeedback, setSearchFeedback] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('todas');
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
+  const [noAlcoholOnly, setNoAlcoholOnly] = useState(false);
+  const [visibleLimit, setVisibleLimit] = useState(RESULTS_PAGE);
+
+  const [selectedId, setSelectedId] = useState(LOCAL_DRINKS[0].id);
+  const [wiki, setWiki] = useState(null);
+  const [favorites, setFavorites] = useState([]);
+  const [history, setHistory] = useState([]);
+
   const [mine, setMine] = useState([]);
   const [newIng, setNewIng] = useState('');
   const [ingredientStatus, setIngredientStatus] = useState('idle');
   const [ingredientFeedback, setIngredientFeedback] = useState('');
+  const [includeStaples, setIncludeStaples] = useState(true);
+  const [matchFilter, setMatchFilter] = useState('todos');
+
+  const [people, setPeople] = useState(10);
+  const [menu, setMenu] = useState([]);
+
+  const [prices, setPrices] = useState({});
+  const [currency, setCurrency] = useState('MXN');
+  const [margin, setMargin] = useState(70);
+  const [showPriceEditor, setShowPriceEditor] = useState(false);
+
   const [breweries, setBreweries] = useState([]);
   const [beers, setBeers] = useState([]);
-  const [wiki, setWiki] = useState(null);
-  const [selected, setSelected] = useState(LOCAL_COCKTAILS[0]);
-  const [people, setPeople] = useState(10);
+
   const searchingRef = useRef(false);
   const wikiRequestRef = useRef(0);
   const ingredientRemoveRefs = useRef([]);
   const ingredientInputRef = useRef(null);
 
-  const cocktailOptions = useMemo(() => {
-    const unique = new Map();
-    [...LOCAL_COCKTAILS, ...results, ...(selected ? [selected] : [])].forEach((drink) => {
-      if (drink?.idDrink) unique.set(drink.idDrink, drink);
-    });
-    return Array.from(unique.values());
-  }, [results, selected]);
+  const catalog = useMemo(() => mergeDrinks(LOCAL_DRINKS, onlineDrinks), [onlineDrinks]);
+  const selected = useMemo(
+    () => catalog.find((drink) => drink.id === selectedId) || LOCAL_DRINKS[0],
+    [catalog, selectedId],
+  );
+  const categories = useMemo(() => allCategories(catalog), [catalog]);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+  const visibleDrinks = useMemo(() => {
+    let list = searchDrinks(catalog, q);
+    if (categoryFilter !== 'todas') list = list.filter((drink) => drink.category === categoryFilter);
+    if (noAlcoholOnly) list = list.filter((drink) => drink.type === 'sin-alcohol' || /sin alcohol/i.test(drink.alcoholic));
+    if (onlyFavorites) list = list.filter((drink) => favorites.includes(drink.id));
+    return list;
+  }, [catalog, q, categoryFilter, noAlcoholOnly, onlyFavorites, favorites]);
 
+  const shownDrinks = visibleDrinks.slice(0, visibleLimit);
+  const favoriteDrinks = useMemo(
+    () => catalog.filter((drink) => favorites.includes(drink.id)),
+    [catalog, favorites],
+  );
+
+  const matches = useMemo(
+    () => rankDrinks(catalog, mine, { includeStaples }),
+    [catalog, mine, includeStaples],
+  );
+  const readyMatches = matches.filter((result) => result.canMake);
+  const filteredMatches = matches.filter((result) => {
+    if (matchFilter === 'listos') return result.canMake;
+    if (matchFilter === 'casi') return !result.canMake && result.missing.length <= 2;
+    return true;
+  });
+  const unlock = useMemo(() => unlockSuggestions(matches), [matches]);
+
+  const menuPlan = useMemo(() => {
+    const items = menu
+      .map((entry) => ({ drink: catalog.find((drink) => drink.id === entry.id), perPerson: entry.perPerson }))
+      .filter((entry) => entry.drink);
+    return partyPlan(items, people, prices);
+  }, [menu, catalog, people, prices]);
+
+  const selectedInMenu = menu.find((entry) => entry.id === selected?.id);
+
+  const selectedCost = useMemo(() => recipeCost(selected, prices), [selected, prices]);
+
+  const shareText = useMemo(() => {
+    const lines = ['🍸 Cócteles Pro — plan de fiesta', `${menuPlan.people} personas · ${menuPlan.drinksTotal} bebidas`, ''];
+    if (menuPlan.items.length) {
+      menuPlan.items.forEach((item) => lines.push(`• ${item.drink.name}: ${item.drinks} vasos (${formatMoney(item.cost, currency)})`));
+      lines.push('', 'Insumos:');
+      menuPlan.shopping.forEach((item) => {
+        lines.push(`- ${item.name}: ${item.amountLabel}${item.packs ? ` (≈ ${item.packs.roundedPacks} × ${item.packs.label})` : ''} — ${formatMoney(item.cost, currency)}`);
+      });
+      lines.push('', `Total estimado: ${formatMoney(menuPlan.total, currency)}`, `Costo por persona: ${formatMoney(menuPlan.perPerson, currency)}`);
+    } else {
+      lines.push('Todavía no hay bebidas en el menú.');
+    }
+    return lines.join('\n');
+  }, [menuPlan, currency]);
+
+  // ── Persistencia ─────────────────────────────────────────────────────────
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('cocteles-pro') || '{}');
-      if (Array.isArray(saved.ingredients)) setMine(saved.ingredients);
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if (Array.isArray(saved.ingredients)) setMine(saved.ingredients.filter(Boolean).map(String));
+      if (Array.isArray(saved.favorites)) setFavorites(saved.favorites);
+      if (Array.isArray(saved.history)) setHistory(saved.history);
+      if (Array.isArray(saved.menu)) setMenu(saved.menu.filter((entry) => entry?.id));
+      if (saved.prices && typeof saved.prices === 'object') setPrices(saved.prices);
+      if (CURRENCIES[saved.currency]) setCurrency(saved.currency);
+      if (Number.isFinite(saved.margin)) setMargin(saved.margin);
+      if (Number.isFinite(saved.people)) setPeople(Math.max(1, saved.people));
+      if (typeof saved.includeStaples === 'boolean') setIncludeStaples(saved.includeStaples);
       if (saved.theme === 'light' || saved.theme === 'dark') setTheme(saved.theme);
-    } catch {}
+    } catch {
+      // Si el almacenamiento está dañado se arranca con los valores por defecto.
+    }
     setStorageReady(true);
   }, []);
 
   useEffect(() => {
     if (!storageReady) return;
     try {
-      localStorage.setItem('cocteles-pro', JSON.stringify({ ingredients: mine, theme }));
-    } catch {}
-  }, [mine, theme, storageReady]);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: 3,
+        ingredients: mine,
+        favorites,
+        history,
+        menu,
+        prices,
+        currency,
+        margin,
+        people,
+        includeStaples,
+        theme,
+      }));
+    } catch {
+      // Sin espacio o sin permisos: la app sigue funcionando en memoria.
+    }
+  }, [storageReady, mine, favorites, history, menu, prices, currency, margin, people, includeStaples, theme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // El resumen de Wikipedia se pide cada vez que cambia la bebida elegida.
+  useEffect(() => {
+    if (!selected) return;
+    fetchWiki(selected);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
 
   useEffect(() => {
     cachedFetch('/api/breweries').then((data) => setBreweries(Array.isArray(data) ? data : [])).catch(() => {});
@@ -120,7 +231,7 @@ export default function Home() {
     const timeout = window.setTimeout(() => {
       setSearchStatus('idle');
       setSearchFeedback('');
-    }, 1800);
+    }, 2600);
     return () => window.clearTimeout(timeout);
   }, [searchStatus]);
 
@@ -129,10 +240,15 @@ export default function Home() {
     const timeout = window.setTimeout(() => {
       setIngredientStatus('idle');
       setIngredientFeedback('');
-    }, 1800);
+    }, 2200);
     return () => window.clearTimeout(timeout);
   }, [ingredientStatus]);
 
+  useEffect(() => {
+    setVisibleLimit(RESULTS_PAGE);
+  }, [q, categoryFilter, onlyFavorites, noAlcoholOnly]);
+
+  // ── Acciones ─────────────────────────────────────────────────────────────
   function changeTab(nextTab) {
     if (tab === nextTab) return;
     setPanelDirection(nextTab > tab ? 'next' : 'previous');
@@ -144,53 +260,83 @@ export default function Home() {
     if (searchingRef.current) return;
     searchingRef.current = true;
     setSearchStatus('loading');
-    setSearchFeedback('Buscando recetas…');
+    setSearchFeedback('Buscando en el catálogo local y en el internacional…');
 
     const query = q.trim();
-    const local = LOCAL_COCKTAILS.filter((drink) => normalizeSearch(drink.strDrink).includes(normalizeSearch(query)));
+    const localCount = searchDrinks(LOCAL_DRINKS, query).length;
 
     try {
       const data = await cachedFetch(`${API}/search.php?s=${encodeURIComponent(query || 'margarita')}`);
-      const remote = Array.isArray(data?.drinks) ? data.drinks : [];
-      const combined = [...local, ...remote].filter((drink, index, all) =>
-        all.findIndex((candidate) => candidate.idDrink === drink.idDrink) === index
-      );
-      setResults(combined);
+      const remote = Array.isArray(data?.drinks) ? data.drinks.map(remoteDrinkToDrink) : [];
+      setOnlineDrinks((current) => mergeDrinks(remote, current).slice(0, 120));
       setSearchStatus('success');
-      setSearchFeedback(`Búsqueda completada. ${combined.length} ${combined.length === 1 ? 'receta disponible' : 'recetas disponibles'}.`);
+      setSearchFeedback(
+        remote.length
+          ? `Listo: ${localCount} recetas locales y ${remote.length} del catálogo internacional (traducidas).`
+          : `Listo: ${localCount} recetas locales. El catálogo internacional no devolvió resultados.`,
+      );
     } catch {
-      setResults(local.length ? local : LOCAL_COCKTAILS);
       setSearchStatus('error');
-      setSearchFeedback('No se pudo conectar con el catálogo en línea. Se muestran recetas locales.');
+      setSearchFeedback(
+        localCount
+          ? `Sin conexión con el catálogo internacional. Mostrando ${localCount} recetas locales.`
+          : 'No se pudo conectar con el catálogo internacional. Prueba otra palabra o revisa tu conexión.',
+      );
     } finally {
       searchingRef.current = false;
     }
   }
 
-  async function pick(drink) {
-    setSelected(drink);
+  async function fetchWiki(drink) {
     setWiki(null);
     const requestId = ++wikiRequestRef.current;
     try {
-      const data = await cachedFetch(`/api/wiki?title=${encodeURIComponent(drink.strDrink)}`);
-      if (requestId === wikiRequestRef.current) setWiki(data);
+      const params = new URLSearchParams({ title: drink.name });
+      if (drink.nameEn && drink.nameEn !== drink.name) params.set('fallback', drink.nameEn);
+      const data = await cachedFetch(`/api/wiki?${params.toString()}`);
+      if (requestId === wikiRequestRef.current) setWiki(data?.extract ? data : null);
     } catch {
       if (requestId === wikiRequestRef.current) setWiki(null);
     }
   }
 
+  function pick(drink) {
+    if (!drink) return;
+    setSelectedId(drink.id);
+    setHistory((current) => {
+      const entry = { id: drink.id, name: drink.name, at: Date.now() };
+      return [entry, ...current.filter((item) => item.id !== drink.id)].slice(0, 8);
+    });
+  }
+
+  function toggleFavorite(id) {
+    setFavorites((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function addIngredientByName(value) {
+    const clean = String(value || '').trim().toLocaleLowerCase('es');
+    if (!clean) return;
+    let duplicated = false;
+    setMine((current) => {
+      if (current.some((item) => normalizeText(item) === normalizeText(clean))) {
+        duplicated = true;
+        return current;
+      }
+      return [...current, clean];
+    });
+    setIngredientStatus(duplicated ? 'error' : 'success');
+    setIngredientFeedback(duplicated ? `${clean} ya estaba en tu lista.` : `Se añadió ${clean}.`);
+  }
+
   function addIngredient(event) {
     event.preventDefault();
-    const ingredient = newIng.trim().toLocaleLowerCase('es');
-    if (!ingredient) {
+    if (!newIng.trim()) {
       setIngredientStatus('error');
       setIngredientFeedback('Escribe el nombre de un ingrediente para añadirlo.');
       return;
     }
-    setMine((current) => [...current, ingredient]);
+    addIngredientByName(newIng);
     setNewIng('');
-    setIngredientStatus('success');
-    setIngredientFeedback(`Se añadió ${ingredient}.`);
   }
 
   function removeIngredient(ingredient, index) {
@@ -205,208 +351,469 @@ export default function Home() {
     });
   }
 
+  function addToParty(drink) {
+    if (!drink) return;
+    setMenu((current) => {
+      const existing = current.find((entry) => entry.id === drink.id);
+      if (existing) {
+        return current.map((entry) => (
+          entry.id === drink.id ? { ...entry, perPerson: Math.min(6, entry.perPerson + 1) } : entry
+        ));
+      }
+      if (current.length >= MAX_MENU_ITEMS) return current;
+      return [...current, { id: drink.id, perPerson: 1 }];
+    });
+  }
+
+  function changePerPerson(id, delta) {
+    setMenu((current) => current.map((entry) => (
+      entry.id === id ? { ...entry, perPerson: Math.min(6, Math.max(1, entry.perPerson + delta)) } : entry
+    )));
+  }
+
+  function removeFromMenu(id) {
+    setMenu((current) => current.filter((entry) => entry.id !== id));
+  }
+
+  function changePrice(key, next) {
+    setPrices((current) => ({
+      ...current,
+      [key]: { size: next.size, price: next.price, label: next.label },
+    }));
+  }
+
+  function resetPrice(key) {
+    setPrices((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
   function swipeToTab(direction) {
     const nextTab = Math.min(TABS.length - 1, Math.max(0, tab + direction));
     if (nextTab !== tab) changeTab(nextTab);
   }
 
-  const selectedIngredients = selected ? ings(selected) : [];
+  const usedKeys = Array.from(new Set([
+    ...selectedCost.lines.map((line) => line.key),
+    ...menuPlan.shopping.map((item) => item.key),
+  ]));
+
   const panels = [
+    // ── Inicio ──────────────────────────────────────────────────────────────
     (
-      <section className="card search-card" aria-labelledby="search-title">
-        <div className="section-heading">
-          <div>
-            <h2 className="card-title" id="search-title">Buscar cócteles</h2>
-            <p className="card-description">Explora recetas y selecciona una para tu próxima ronda.</p>
+      <div key="inicio">
+        <section className="card" aria-labelledby="search-title">
+          <div className="section-heading">
+            <div>
+              <h2 className="card-title" id="search-title">Buscar bebidas</h2>
+              <p className="card-description">
+                {LOCAL_DRINKS.length} bebidas en el catálogo local. Si hay conexión también se consulta el
+                catálogo internacional y se traduce al español.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <form className="search-form" onSubmit={search}>
-          <div className="field-group search-form__field">
-            <label className="field-label" htmlFor="drink-search">Nombre del cóctel</label>
-            <input
-              id="drink-search"
-              className="input"
-              type="search"
-              value={q}
-              onChange={(event) => {
-                setQ(event.target.value);
-                if (searchStatus !== 'loading') {
-                  setSearchStatus('idle');
-                  setSearchFeedback('');
-                }
-              }}
-              placeholder="Margarita, Paloma…"
-              autoComplete="off"
+          <form className="search-form" onSubmit={search}>
+            <div className="field-group search-form__field">
+              <label className="field-label" htmlFor="drink-search">Nombre, ingrediente o estilo</label>
+              <input
+                id="drink-search"
+                className="input"
+                type="search"
+                value={q}
+                onChange={(event) => {
+                  setQ(event.target.value);
+                  if (searchStatus !== 'loading') {
+                    setSearchStatus('idle');
+                    setSearchFeedback('');
+                  }
+                }}
+                placeholder="Margarita, cerveza, tequila, sin alcohol…"
+                autoComplete="off"
+              />
+            </div>
+            <ActionButton
+              className="btn btn-primary search-submit"
+              type="submit"
+              status={searchStatus}
+              loadingLabel="Buscando…"
+              successLabel="Resultados listos"
+            >
+              Buscar bebidas
+            </ActionButton>
+          </form>
+          <Feedback status={searchStatus} id="search-feedback">{searchFeedback}</Feedback>
+
+          <div className="filter-row" role="group" aria-label="Filtros de bebidas">
+            <label className="field-group filter-select">
+              <span className="field-label">Categoría</span>
+              <select
+                className="select"
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+              >
+                <option value="todas">Todas las categorías</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className={`chip-filter ${onlyFavorites ? 'is-active' : ''}`}
+              aria-pressed={onlyFavorites}
+              onClick={() => setOnlyFavorites((value) => !value)}
+            >
+              ★ Solo favoritos
+            </button>
+            <button
+              type="button"
+              className={`chip-filter ${noAlcoholOnly ? 'is-active' : ''}`}
+              aria-pressed={noAlcoholOnly}
+              onClick={() => setNoAlcoholOnly((value) => !value)}
+            >
+              Sin alcohol
+            </button>
+          </div>
+
+          <div className="results-header">
+            <h3 className="results-title">Resultados</h3>
+            <p className="result-count" aria-live="polite" aria-atomic="true">
+              {visibleDrinks.length} {visibleDrinks.length === 1 ? 'bebida' : 'bebidas'}
+            </p>
+          </div>
+
+          {shownDrinks.length > 0 ? (
+            <>
+              <DrinkRail
+                drinks={shownDrinks}
+                selectedId={selected?.id}
+                favorites={favorites}
+                onSelect={pick}
+                onToggleFavorite={toggleFavorite}
+              />
+              {visibleDrinks.length > shownDrinks.length && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setVisibleLimit((value) => value + RESULTS_PAGE)}
+                >
+                  Ver más bebidas ({visibleDrinks.length - shownDrinks.length} restantes)
+                </button>
+              )}
+            </>
+          ) : (
+            <p className="empty-state" role="status">
+              No encontramos bebidas con esos filtros. Prueba otra palabra o quita filtros.
+            </p>
+          )}
+        </section>
+
+        <section className="card" aria-labelledby="detail-title">
+          <h2 className="card-title" id="detail-title">Receta seleccionada</h2>
+          <DrinkDetail
+            drink={selected}
+            wiki={wiki}
+            isFavorite={favorites.includes(selected?.id)}
+            onToggleFavorite={() => toggleFavorite(selected?.id)}
+            onAddToParty={addToParty}
+            onGoToCosts={() => changeTab(3)}
+            canAddToParty={menu.length < MAX_MENU_ITEMS || Boolean(selectedInMenu)}
+          />
+        </section>
+
+        {favoriteDrinks.length > 0 && (
+          <section className="card" aria-labelledby="favorites-title">
+            <div className="section-heading">
+              <div>
+                <h2 className="card-title" id="favorites-title">Tus favoritos</h2>
+                <p className="card-description">Las bebidas que marcaste con ★.</p>
+              </div>
+            </div>
+            <DrinkRail
+              drinks={favoriteDrinks}
+              selectedId={selected?.id}
+              favorites={favorites}
+              onSelect={pick}
+              onToggleFavorite={toggleFavorite}
             />
-          </div>
-          <ActionButton
-            className="btn btn-primary search-submit"
-            type="submit"
-            status={searchStatus}
-            loadingLabel="Buscando…"
-            successLabel="Resultados listos"
-          >
-            Buscar recetas
-          </ActionButton>
-        </form>
-        <Feedback status={searchStatus} id="search-feedback">{searchFeedback}</Feedback>
+          </section>
+        )}
 
-        <div className="results-header">
-          <h3 className="results-title">Recetas para explorar</h3>
-          <p className="result-count" aria-live="polite" aria-atomic="true">
-            {results.length} {results.length === 1 ? 'receta' : 'recetas'}
-          </p>
-        </div>
-
-        {results.length > 0 ? (
-          <HorizontalRail
-            label="Resultados de cócteles"
-            className="drink-rail"
-            trackClassName={`drink-list ${results.length === 1 ? 'drink-list--single' : ''}`}
-            trackRole="list"
-          >
-            {results.map((drink) => {
-              const isSelected = selected?.idDrink === drink.idDrink;
-              const ingredients = ings(drink).map((ingredient) => ingredient.name).join(', ');
-              return (
-                <li className="drink-card-slot" key={drink.idDrink}>
+        {history.length > 0 && (
+          <section className="card" aria-labelledby="history-title">
+            <h2 className="card-title" id="history-title">Historial reciente</h2>
+            <ul className="history-list">
+              {history.map((entry) => (
+                <li key={`${entry.id}-${entry.at}`}>
                   <button
                     type="button"
-                    className="drink-card"
-                    aria-pressed={isSelected}
-                    onClick={() => pick(drink)}
+                    className="history-item"
+                    onClick={() => {
+                      const drink = catalog.find((item) => item.id === entry.id);
+                      if (drink) pick(drink);
+                    }}
                   >
-                    <span className="drink-body">
-                      <span className="drink-card__heading">
-                        <span className="drink-name">{drink.strDrink}</span>
-                        {isSelected && <span className="drink-card__selected" aria-hidden="true">✓ Seleccionado</span>}
-                      </span>
-                      <span className="drink-ingredients">
-                        {ingredients || 'Selecciona para consultar sus ingredientes'}
-                      </span>
+                    <span>{entry.name}</span>
+                    <span className="history-item__date">
+                      {new Date(entry.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
                     </span>
                   </button>
                 </li>
-              );
-            })}
-          </HorizontalRail>
-        ) : (
-          <p className="empty-state" role="status">No encontramos recetas para esa búsqueda. Prueba con otro nombre.</p>
+              ))}
+            </ul>
+          </section>
         )}
-
-        {wiki?.extract && (
-          <p className="wiki-extract">
-            <span className="wiki-extract__title">Sobre {selected?.strDrink}: </span>
-            {wiki.extract}
-          </p>
-        )}
-      </section>
+      </div>
     ),
+
+    // ── Ingredientes ────────────────────────────────────────────────────────
     (
-      <section className="card" aria-labelledby="ingredients-title">
-        <div className="section-heading">
-          <div>
-            <h2 className="card-title" id="ingredients-title">Mis ingredientes</h2>
-            <p className="card-description">Guarda lo que tienes a mano para planificar tus recetas.</p>
+      <div key="ingredientes">
+        <section className="card" aria-labelledby="ingredients-title">
+          <div className="section-heading">
+            <div>
+              <h2 className="card-title" id="ingredients-title">Mis ingredientes</h2>
+              <p className="card-description">
+                Guarda lo que tienes en casa y la app calcula al instante qué bebidas puedes preparar.
+              </p>
+            </div>
           </div>
-        </div>
 
-        {mine.length ? (
-          <HorizontalRail label="Mis ingredientes disponibles" className="chips-rail">
-            {mine.map((ingredient, index) => (
-              <span className="chip" key={`${ingredient}-${index}`}>
-                <span className="chip__name">{ingredient}</span>
-                <button
-                  ref={(element) => { ingredientRemoveRefs.current[index] = element; }}
-                  className="remove"
-                  type="button"
-                  aria-label={`Quitar ${ingredient}`}
-                  onClick={() => removeIngredient(ingredient, index)}
-                >
-                  <span aria-hidden="true">×</span>
-                </button>
-              </span>
-            ))}
-          </HorizontalRail>
-        ) : (
-          <p className="empty-state empty-state--compact">Todavía no has añadido ingredientes.</p>
-        )}
+          {mine.length ? (
+            <HorizontalRail label="Mis ingredientes disponibles" className="chips-rail">
+              {mine.map((ingredient, index) => (
+                <span className="chip" key={`${ingredient}-${index}`}>
+                  <span className="chip__name">{ingredient}</span>
+                  <button
+                    ref={(element) => { ingredientRemoveRefs.current[index] = element; }}
+                    className="remove"
+                    type="button"
+                    aria-label={`Quitar ${ingredient}`}
+                    onClick={() => removeIngredient(ingredient, index)}
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </span>
+              ))}
+            </HorizontalRail>
+          ) : (
+            <p className="empty-state empty-state--compact">
+              Todavía no has añadido ingredientes. Empieza por lo básico: tequila, limón, cerveza, refresco de toronja…
+            </p>
+          )}
 
-        <form className="ingredient-form" onSubmit={addIngredient}>
-          <div className="field-group ingredient-form__field">
-            <label className="field-label" htmlFor="new-ingredient">Añadir ingrediente</label>
+          <form className="ingredient-form" onSubmit={addIngredient}>
+            <div className="field-group ingredient-form__field">
+              <label className="field-label" htmlFor="new-ingredient">Añadir ingrediente</label>
+              <input
+                ref={ingredientInputRef}
+                id="new-ingredient"
+                className="input"
+                value={newIng}
+                list="pantry-suggestions"
+                onChange={(event) => {
+                  setNewIng(event.target.value);
+                  if (ingredientStatus === 'error' || ingredientStatus === 'success') {
+                    setIngredientStatus('idle');
+                    setIngredientFeedback('');
+                  }
+                }}
+                placeholder="Tequila, limón, cerveza, hielo…"
+                aria-invalid={ingredientStatus === 'error'}
+                aria-describedby={ingredientFeedback ? 'ingredient-feedback' : undefined}
+                autoComplete="off"
+              />
+              <datalist id="pantry-suggestions">
+                {PANTRY_SUGGESTIONS.map((item) => <option key={item} value={item} />)}
+              </datalist>
+            </div>
+            <ActionButton
+              className="btn btn-primary ingredient-submit"
+              type="submit"
+              status={ingredientStatus}
+              successLabel="Añadido"
+            >
+              Añadir ingrediente
+            </ActionButton>
+          </form>
+          <Feedback status={ingredientStatus} id="ingredient-feedback">{ingredientFeedback}</Feedback>
+
+          <label className="switch-row">
             <input
-              ref={ingredientInputRef}
-              id="new-ingredient"
-              className="input"
-              value={newIng}
-              onChange={(event) => {
-                setNewIng(event.target.value);
-                if (ingredientStatus === 'error' || ingredientStatus === 'success') {
-                  setIngredientStatus('idle');
-                  setIngredientFeedback('');
-                }
-              }}
-              placeholder="Tequila, limón, cerveza…"
-              aria-invalid={ingredientStatus === 'error'}
-              aria-describedby={ingredientFeedback ? 'ingredient-feedback' : undefined}
-              autoComplete="off"
+              type="checkbox"
+              checked={includeStaples}
+              onChange={(event) => setIncludeStaples(event.target.checked)}
             />
+            <span>Asumir que ya tengo hielo y agua</span>
+          </label>
+        </section>
+
+        <section className="card" aria-labelledby="ready-title">
+          <div className="section-heading">
+            <div>
+              <h2 className="card-title" id="ready-title">Qué puedes preparar</h2>
+              <p className="card-description">
+                {mine.length
+                  ? `Con lo que tienes: ${readyMatches.length} ${readyMatches.length === 1 ? 'bebida lista' : 'bebidas listas'} y ${matches.length} con coincidencias parciales.`
+                  : 'Añade tus ingredientes para ver las coincidencias.'}
+              </p>
+            </div>
           </div>
-          <ActionButton
-            className="btn btn-primary ingredient-submit"
-            type="submit"
-            status={ingredientStatus}
-            successLabel="Añadido"
+
+          {unlock.length > 0 && readyMatches.length < matches.length && (
+            <div className="unlock-box">
+              <p className="unlock-box__title">Si añades un ingrediente más podrías preparar:</p>
+              <ul className="unlock-list">
+                {unlock.map((entry) => (
+                  <li key={entry.ingredient.key}>
+                    <button
+                      type="button"
+                      className="chip chip--add"
+                      onClick={() => addIngredientByName(entry.ingredient.name)}
+                    >
+                      <span aria-hidden="true">+</span> {entry.ingredient.name}
+                    </button>
+                    <span className="unlock-list__meta">{entry.count} {entry.count === 1 ? 'bebida' : 'bebidas'} más</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <MatchList
+            results={filteredMatches}
+            filter={matchFilter}
+            onFilterChange={setMatchFilter}
+            onSelect={pick}
+            onAddIngredient={addIngredientByName}
+            selectedId={selected?.id}
+            hasPantry={mine.length > 0}
+          />
+        </section>
+      </div>
+    ),
+
+    // ── Fiesta ──────────────────────────────────────────────────────────────
+    (
+      <div key="fiesta">
+        <section className="card" aria-labelledby="party-title">
+          <div className="section-heading">
+            <div>
+              <h2 className="card-title" id="party-title">Planea tu fiesta</h2>
+              <p className="card-description">
+                Arma el menú, define cuántas personas llegan y la app recalcula insumos, cantidades y costos.
+              </p>
+            </div>
+          </div>
+
+          <div className="party-controls">
+            <RecipePicker
+              options={catalog}
+              selected={selected}
+              onSelect={pick}
+              label="Elige una bebida para el menú"
+            />
+            <div className="field-group guests-field">
+              <label className="field-label" htmlFor="guest-count">Número de personas</label>
+              <input
+                id="guest-count"
+                className="input"
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                value={people}
+                onChange={(event) => setPeople(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => addToParty(selected)}
+            disabled={menu.length >= MAX_MENU_ITEMS && !selectedInMenu}
           >
-            Añadir ingrediente
-          </ActionButton>
-        </form>
-        <Feedback status={ingredientStatus} id="ingredient-feedback">{ingredientFeedback}</Feedback>
-      </section>
-    ),
-    (
-      <section className="card" aria-labelledby="party-title">
-        <div className="section-heading">
-          <div>
-            <h2 className="card-title" id="party-title">Planea tu fiesta</h2>
-            <p className="card-description">Elige una receta y calcula una cantidad aproximada para tus invitados.</p>
-          </div>
-        </div>
+            Añadir {selected?.name} al menú
+          </button>
 
-        <div className="party-controls">
-          <RecipePicker options={cocktailOptions} selected={selected} onSelect={pick} />
-          <div className="field-group guests-field">
-            <label className="field-label" htmlFor="guest-count">Número de personas</label>
-            <input
-              id="guest-count"
-              className="input"
-              type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              value={people}
-              onChange={(event) => setPeople(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
-            />
-          </div>
-        </div>
+          <h3 className="subheading">Menú de la fiesta</h3>
+          {menuPlan.items.length ? (
+            <ul className="menu-list">
+              {menuPlan.items.map((item) => (
+                <li className="menu-row" key={item.drink.id}>
+                  <div className="menu-row__info">
+                    <p className="menu-row__name">{item.drink.emoji} {item.drink.name}</p>
+                    <p className="menu-row__meta">
+                      {item.perPerson} {item.perPerson === 1 ? 'vaso' : 'vasos'} por persona · {item.drinks} vasos · {formatMoney(item.cost, currency)}
+                    </p>
+                  </div>
+                  <div className="menu-row__actions">
+                    <button
+                      type="button"
+                      className="stepper"
+                      aria-label={`Quitar un vaso por persona de ${item.drink.name}`}
+                      onClick={() => changePerPerson(item.drink.id, -1)}
+                    >
+                      −
+                    </button>
+                    <button
+                      type="button"
+                      className="stepper"
+                      aria-label={`Añadir un vaso por persona de ${item.drink.name}`}
+                      onClick={() => changePerPerson(item.drink.id, 1)}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      className="remove"
+                      aria-label={`Quitar ${item.drink.name} del menú`}
+                      onClick={() => removeFromMenu(item.drink.id)}
+                    >
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="empty-state empty-state--compact">
+              El menú está vacío. Elige bebidas arriba y añádelas: puedes combinar hasta {MAX_MENU_ITEMS}.
+            </p>
+          )}
 
-        <p className="party-summary" aria-live="polite" aria-atomic="true">
-          Para <strong>{people} {people === 1 ? 'persona' : 'personas'}</strong>, calcula aproximadamente <strong>{people * 2} vasos</strong> de {selected?.strDrink || 'tu cóctel'}.
-        </p>
+          <p className="party-summary" aria-live="polite" aria-atomic="true">
+            Para <strong>{people} {people === 1 ? 'persona' : 'personas'}</strong> el menú suma{' '}
+            <strong>{menuPlan.drinksTotal} vasos</strong> y cuesta aproximadamente{' '}
+            <strong>{formatMoney(menuPlan.total, currency)}</strong> ({formatMoney(menuPlan.perPerson, currency)} por persona).
+          </p>
+        </section>
+
+        <section className="card" aria-labelledby="supplies-title">
+          <h2 className="card-title" id="supplies-title">Insumos y lista de compras</h2>
+          <p className="card-description">
+            Cantidades totales para {people} {people === 1 ? 'persona' : 'personas'}, con el envase que conviene comprar.
+          </p>
+          <ShoppingList plan={menuPlan} currency={currency} />
+          <ShareCard title="la lista de compras" text={shareText} />
+        </section>
 
         {(breweries.length > 0 || beers.length > 0) && (
-          <div className="local-recommendations">
-            <h3 className="results-title">Cervezas y productores</h3>
+          <section className="card" aria-labelledby="local-title">
+            <h2 className="card-title" id="local-title">Cervezas y productores</h2>
+            <p className="card-description">Datos de referencia del catálogo abierto de cervecerías y cervezas artesanales.</p>
             {breweries.length > 0 && (
               <section className="data-section" aria-labelledby="brewery-title">
-                <h4 className="data-section__title" id="brewery-title">Cervecerías</h4>
+                <h3 className="data-section__title" id="brewery-title">Cervecerías en México</h3>
                 <ul className="data-list">
                   {breweries.map((brewery) => (
                     <li key={brewery.id} className="result-row">
                       <span>{brewery.name}</span>
-                      <span>{brewery.city}</span>
+                      <span>{[brewery.city, brewery.state].filter(Boolean).join(', ')}</span>
                     </li>
                   ))}
                 </ul>
@@ -414,46 +821,70 @@ export default function Home() {
             )}
             {beers.length > 0 && (
               <section className="data-section" aria-labelledby="beer-title">
-                <h4 className="data-section__title" id="beer-title">Cervezas</h4>
+                <h3 className="data-section__title" id="beer-title">Cervezas artesanales</h3>
                 <ul className="data-list">
-                  {beers.slice(0, 6).map((beer) => (
+                  {beers.slice(0, 8).map((beer) => (
                     <li key={beer.id} className="result-row">
                       <span>{beer.name}</span>
-                      <span>{beer.price || ''}</span>
+                      <span>{beer.price}</span>
                     </li>
                   ))}
                 </ul>
               </section>
             )}
-          </div>
+          </section>
         )}
-      </section>
+      </div>
     ),
+
+    // ── Costos ──────────────────────────────────────────────────────────────
     (
-      <section className="card" aria-labelledby="cost-title">
-        <div className="section-heading">
-          <div>
-            <h2 className="card-title" id="cost-title">Ingredientes y costos</h2>
-            <p className="card-description">Consulta las cantidades de la receta seleccionada.</p>
+      <div key="costos">
+        <section className="card" aria-labelledby="cost-title">
+          <div className="section-heading">
+            <div>
+              <h2 className="card-title" id="cost-title">Ingredientes y costos</h2>
+              <p className="card-description">
+                Costo real por bebida, costo por persona y precio de venta sugerido con el margen que elijas.
+              </p>
+            </div>
+            <label className="field-group currency-field">
+              <span className="field-label">Moneda</span>
+              <select className="select" value={currency} onChange={(event) => setCurrency(event.target.value)}>
+                {Object.entries(CURRENCIES).map(([code, config]) => (
+                  <option key={code} value={code}>{config.label}</option>
+                ))}
+              </select>
+            </label>
           </div>
-        </div>
 
-        <RecipePicker options={cocktailOptions} selected={selected} onSelect={pick} />
+          <RecipePicker options={catalog} selected={selected} onSelect={pick} />
 
-        <h3 className="cost-recipe-title">{selected?.strDrink || 'Selecciona un cóctel'}</h3>
-        {selectedIngredients.length ? (
-          <dl className="cost-list">
-            {selectedIngredients.map((ingredient, index) => (
-              <div className="result-row" key={`${ingredient.name}-${index}`}>
-                <dt>{ingredient.name}</dt>
-                <dd>{ingredient.measure || '—'}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : (
-          <p className="empty-state">Esta receta todavía no tiene ingredientes registrados.</p>
-        )}
-      </section>
+          <CostBreakdown
+            drink={selected}
+            lines={selectedCost.lines}
+            total={selectedCost.total}
+            perDrink={selectedCost.perDrink}
+            people={people}
+            drinksPerPerson={selectedInMenu?.perPerson || 1}
+            currency={currency}
+            margin={margin}
+            onMarginChange={setMargin}
+            onOpenPrices={() => setShowPriceEditor((value) => !value)}
+          />
+
+          {showPriceEditor && (
+            <PriceEditor
+              usedKeys={usedKeys}
+              prices={prices}
+              currency={currency}
+              onChangePrice={changePrice}
+              onResetPrice={resetPrice}
+              onResetAll={() => setPrices({})}
+            />
+          )}
+        </section>
+      </div>
     ),
   ];
 
@@ -469,7 +900,7 @@ export default function Home() {
             role="switch"
             aria-checked={theme === 'light'}
             aria-label="Tema claro"
-            onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+            onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
           >
             <span className="thumb" aria-hidden="true" />
           </button>

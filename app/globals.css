@@ -1203,3 +1203,687 @@ textarea:focus-visible,
     scroll-snap-type: none;
   }
 }
+
+/* ==========================================================================
+   Vistas de bebidas, coincidencias con ingredientes, fiesta y costos
+   ========================================================================== */
+
+.drink-card-slot {
+  position: relative;
+}
+
+.drink-card__heading {
+  padding-right: 34px;
+}
+
+.drink-emoji {
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.favorite {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  color: var(--text2);
+  font-size: 1.05rem;
+  line-height: 1;
+  transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) var(--ease-standard);
+}
+
+.drink-card-slot > .favorite {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+}
+
+.favorite.is-active {
+  border-color: color-mix(in srgb, var(--warning) 65%, var(--border));
+  color: var(--warning);
+}
+
+.drink-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--card2));
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.badge--muted {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-weight: 600;
+}
+
+.badge--ready {
+  border: 1px solid color-mix(in srgb, var(--success) 55%, var(--border));
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, var(--card2));
+}
+
+.subheading {
+  margin: 20px 0 8px;
+  color: var(--text);
+  font-size: 0.94rem;
+  font-weight: 720;
+}
+
+.drink-detail {
+  margin-top: 6px;
+}
+
+.drink-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.drink-detail__title {
+  color: var(--text);
+  font-size: 1.16rem;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+
+.drink-detail__subtitle {
+  margin-top: 5px;
+  color: var(--text2);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.tag-list {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+
+.instructions {
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.note {
+  margin-top: 6px;
+  color: var(--text2);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.inline-link {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.detail-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-row {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.filter-select {
+  min-width: 210px;
+  flex: 1 1 210px;
+}
+
+.chip-filter {
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card2);
+  color: var(--text2);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.chip-filter.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--card2));
+  color: var(--text);
+}
+
+.match-list,
+.price-list,
+.shopping-list,
+.menu-list,
+.history-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.match-row {
+  padding: 14px 15px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card2);
+}
+
+.match-row.is-ready {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+}
+
+.match-row__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.match-row__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-row__name {
+  color: var(--text);
+  font-size: 0.98rem;
+  font-weight: 720;
+}
+
+.match-row__meta {
+  margin-top: 3px;
+  color: var(--text2);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.match-row__ingredients {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.pill--have {
+  background: color-mix(in srgb, var(--success) 14%, var(--card));
+  color: var(--text);
+}
+
+.pill--miss {
+  border: 1px dashed var(--border);
+  color: var(--text2);
+}
+
+.meter {
+  height: 6px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--card);
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+}
+
+.missing-block {
+  margin-top: 12px;
+}
+
+.missing-chips {
+  margin-top: 7px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.chip--add {
+  min-height: 38px;
+  padding: 7px 13px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.match-row__actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.unlock-box {
+  margin-top: 16px;
+  padding: 14px 15px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  background: var(--card2);
+}
+
+.unlock-box__title {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.unlock-list {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+}
+
+.unlock-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unlock-list__meta {
+  color: var(--text2);
+  font-size: 0.78rem;
+}
+
+.switch-row {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text2);
+  font-size: 0.86rem;
+}
+
+.switch-row input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+/* ── Costos ───────────────────────────────────────────────────────────────── */
+
+.currency-field {
+  min-width: 190px;
+}
+
+.cost-row {
+  min-width: 0;
+  padding: 11px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cost-row__name {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 640;
+}
+
+.cost-row__meta {
+  margin-top: 2px;
+  color: var(--text2);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.cost-row__cost {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.total-row {
+  margin-top: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 11%, var(--card2));
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.total-row strong {
+  font-size: 1.12rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 10px;
+}
+
+.cost-stat {
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card2);
+}
+
+.cost-stat__label {
+  color: var(--text2);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.cost-stat__value {
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 1.14rem;
+  font-weight: 740;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-stat__value--accent {
+  color: var(--accent);
+}
+
+.cost-stat__meta {
+  margin-top: 4px;
+  color: var(--text2);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.margin-control {
+  margin-top: 6px;
+}
+
+.range {
+  width: 100%;
+  margin-top: 10px;
+  accent-color: var(--accent);
+}
+
+.price-editor {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.price-editor__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.price-editor__tools {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.price-editor__tools .input {
+  max-width: 320px;
+}
+
+.price-row {
+  padding: 13px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card2);
+}
+
+.price-row__name {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 660;
+}
+
+.price-row__meta {
+  margin-top: 3px;
+  color: var(--text2);
+  font-size: 0.78rem;
+}
+
+.price-row__inputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.price-row__inputs .field-group {
+  width: 108px;
+}
+
+.price-row__inputs .input {
+  min-height: 44px;
+}
+
+/* ── Fiesta ───────────────────────────────────────────────────────────────── */
+
+.menu-row {
+  padding: 13px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card2);
+}
+
+.menu-row__name {
+  color: var(--text);
+  font-size: 0.94rem;
+  font-weight: 680;
+}
+
+.menu-row__meta {
+  margin-top: 3px;
+  color: var(--text2);
+  font-size: 0.8rem;
+}
+
+.menu-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.stepper {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.shopping-row {
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card2);
+}
+
+.shopping-row__name {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 660;
+}
+
+.shopping-row__meta {
+  margin-top: 3px;
+  color: var(--text2);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.shopping-row__cost {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.share-card {
+  margin-top: 20px;
+  padding-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.share-card__area {
+  margin-top: 8px;
+  min-height: 132px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.share-card__text .btn {
+  margin-top: 10px;
+}
+
+.share-card__qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.share-card__qr .note {
+  max-width: 160px;
+  color: #1a1a2e;
+  text-align: center;
+}
+
+/* ── Historial ────────────────────────────────────────────────────────────── */
+
+.history-item {
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card2);
+  color: var(--text);
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.history-item__date {
+  color: var(--text2);
+  font-size: 0.78rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .favorite:hover,
+  .chip-filter:hover,
+  .chip--add:hover,
+  .stepper:hover,
+  .history-item:hover {
+    filter: brightness(1.08);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  }
+
+  .chip--add:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+}
+
+.favorite:active,
+.chip-filter:active,
+.chip--add:active,
+.stepper:active,
+.history-item:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 600px) {
+  .share-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .share-card__qr {
+    justify-self: start;
+  }
+
+  .price-row__inputs {
+    width: 100%;
+  }
+
+  .price-row__inputs .field-group {
+    width: calc(50% - 4px);
+  }
+
+  .filter-select {
+    min-width: 100%;
+  }
+
+  .detail-actions .btn {
+    width: 100%;
+  }
+}
