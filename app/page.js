@@ -26,6 +26,8 @@ const TABS = [
   { id: 'ingredientes', label: 'Ingredientes', icon: '🍋' },
   { id: 'fiesta', label: 'Fiesta', icon: '🎉' },
   { id: 'costos', label: 'Costos', icon: '💰' },
+  { id: 'instalar', label: 'Instalar', icon: '📱' },
+  { id: 'privacidad', label: 'Privacidad', icon: '🔒' },
 ];
 
 const STORAGE_KEY = 'cocteles-pro';
@@ -919,6 +921,104 @@ export default function Home() {
               onResetAll={() => setPrices({})}
             />
           )}
+        </section>
+      </div>
+    ),
+
+    // ── Instalar (QR) ──────────────────────────────────────────────────────
+    (
+      <div key="instalar">
+        <section className="card" aria-labelledby="install-title">
+          <div className="section-heading">
+            <div>
+              <h2 className="card-title" id="install-title">Instalar Cócteles Pro</h2>
+              <p className="card-description">
+                Escanea el código QR desde tu teléfono para abrir la app o instálala como aplicación en tu pantalla de inicio.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            {(() => {
+              const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://coctelespro.vercel.app';
+              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=${encodeURIComponent(appUrl)}`;
+              return (
+                <>
+                  <img
+                    src={qrUrl}
+                    alt="Código QR para instalar Cócteles Pro"
+                    style={{ width: 260, height: 260, maxWidth: '100%', borderRadius: 12, background: '#fff', padding: 8 }}
+                  />
+                  <p style={{ marginTop: 12, color: 'var(--text2)', wordBreak: 'break-all' }}>
+                    {appUrl}
+                  </p>
+                </>
+              );
+            })()}
+          </div>
+
+          <h3 className="subheading">Cómo instalarla</h3>
+          <div className="install-instructions" style={{ display: 'grid', gap: 12 }}>
+            <div className="card" style={{ padding: 16, background: 'rgba(255,255,255,0.04)' }}>
+              <p style={{ fontWeight: 600, marginBottom: 6 }}>📱 Android (Chrome)</p>
+              <ol style={{ paddingLeft: 20, margin: 0, color: 'var(--text2)', lineHeight: 1.6 }}>
+                <li>Abre la app en Chrome.</li>
+                <li>Toca el menú (⋮) en la esquina superior derecha.</li>
+                <li>Selecciona "Instalar aplicación" o "Añadir a pantalla de inicio".</li>
+                <li>Confirma y listo: funcionará sin conexión.</li>
+              </ol>
+            </div>
+            <div className="card" style={{ padding: 16, background: 'rgba(255,255,255,0.04)' }}>
+              <p style={{ fontWeight: 600, marginBottom: 6 }}>🍎 iPhone / iPad (Safari)</p>
+              <ol style={{ paddingLeft: 20, margin: 0, color: 'var(--text2)', lineHeight: 1.6 }}>
+                <li>Abre la app en Safari.</li>
+                <li>Toca el botón Compartir (⬆️) en la barra inferior.</li>
+                <li>Elige "Añadir a la pantalla de inicio".</li>
+                <li>Confirma el nombre y toca "Añadir".</li>
+              </ol>
+            </div>
+          </div>
+
+          <p className="note" style={{ marginTop: 16 }}>
+            La app funciona completamente sin internet una vez cargada; tus datos se guardan solo en tu dispositivo.
+          </p>
+        </section>
+      </div>
+    ),
+
+    // ── Privacidad ──────────────────────────────────────────────────────────
+    (
+      <div key="privacidad">
+        <section className="card" aria-labelledby="privacy-title">
+          <div className="section-heading">
+            <div>
+              <h2 className="card-title" id="privacy-title">Política de privacidad</h2>
+              <p className="card-description">Última actualización: 7 de octubre de 2026</p>
+            </div>
+          </div>
+
+          <h3 className="subheading">Responsable</h3>
+          <p style={{ color: 'var(--text2)' }}>
+            Cócteles Pro opera de forma local en tu navegador.
+          </p>
+
+          <h3 className="subheading">Datos que se guardan</h3>
+          <p style={{ color: 'var(--text2)' }}>
+            Ingredientes, favoritos, historial, precios y preferencias viven solo en <code>localStorage</code> de este dispositivo.
+            No hay cuenta ni backend de usuarios. Las traducciones del catálogo internacional se hacen en tu propio navegador.
+          </p>
+
+          <h3 className="subheading">APIs de terceros</h3>
+          <p style={{ color: 'var(--text2)' }}>
+            TheCocktailDB, Open Brewery DB, SampleAPIs, Wikipedia REST y QR Server. Las consultas pueden revelar el nombre
+            de la bebida al proveedor. No se envían precios ni ingredientes personales.
+          </p>
+
+          <div style={{ marginTop: 20, padding: 16, borderRadius: 8, background: 'rgba(233,69,96,0.1)', border: '1px solid rgba(233,69,96,0.3)' }}>
+            <p style={{ margin: 0, fontSize: '0.95em' }}>
+              🔐 Ninguna información personal sale de tu teléfono o computadora.
+            </p>
+          </div>
         </section>
       </div>
     ),
