@@ -40,10 +40,11 @@ npm run check:data   # revisa insumos, medidas, costos y coincidencias
 - Recomendación de hielo, costo total, costo por persona y resumen para compartir con QR.
 
 ### 💰 Costos
-- Desglose del costo por ingrediente y por bebida.
-- Costo de la tanda completa según el número de personas de la pestaña Fiesta.
-- Precio de venta sugerido con el margen de ganancia que elijas.
-- Editor de precios: presentación y precio de cada insumo (se guardan en el dispositivo).
+- Elige uno o varios cócteles, el número de personas y vasos por persona; el menú se comparte con Fiesta.
+- Cálculo de vasos, costo de ingredientes, ingreso de venta sugerido y ganancia bruta estimada, por cóctel y para todo el menú.
+- Compras por cóctel a partir de sus ingredientes reales: cantidad usada, presentación de compra y costo de los envases completos.
+- Cerveza con presentaciones habituales de 250, 330, 355, 473 y 710 ml; destilados, refrescos, jugos y mezcladores usan tamaños de compra propios.
+- Editor de precios limitado por defecto a los ingredientes de las recetas seleccionadas; se pueden editar precios y presentaciones (se guardan en el dispositivo).
 - Moneda en pesos mexicanos, dólares o euros (las conversiones son aproximadas).
 
 ## Estructura
@@ -54,7 +55,7 @@ app/                 Pantallas, componentes y rutas de API
   components/        Componentes accesibles (tabs, combobox, rail…) y vistas de bebidas
 lib/
   data/ingredients.js   Diccionario de insumos: nombre en español, presentación y precio
-  data/recipes-local.js Catálogo local de 106 bebidas (español, sin conexión)
+  data/recipes-local.js Catálogo local de 106 bebidas (español, sin conexión; recetas de referencia)
   drinks.js          Une catálogo local + API en un solo modelo
   i18n.js            Traducción de nombres, vasos, medidas e instrucciones al español
   pairing.js         Coincidencias entre tus ingredientes y las recetas
@@ -63,15 +64,28 @@ lib/
 scripts/check-data.mjs Revisión automática del catálogo y de los cálculos
 ```
 
-## APIs
+## APIs e integraciones
 
-1. TheCocktailDB — catálogo internacional (se traduce al español en el navegador).
-2. Open Brewery DB — cervecerías de México.
-3. SampleAPIs beers — cervezas artesanales con precio de referencia en MXN.
-4. Wikipedia REST (es) — resumen de cada bebida.
+1. **TheCocktailDB** — catálogo internacional, consultado con el identificador de desarrollo `1` y traducido al español en el navegador. Se conserva la búsqueda existente por nombre; la documentación oficial también describe búsquedas por letra e ingrediente, categorías, filtros y detalles.
+2. **Open Brewery DB** — API pública sin clave; la ruta `/api/breweries` solicita cervecerías de referencia de México.
+3. **SampleAPIs beers** — cervezas artesanales con precio de referencia convertido a MXN.
+4. **Wikipedia REST (es)** — resumen de cada bebida.
 
-No se requieren claves. Todas las rutas degradan con gracia: si no hay conexión la app
-sigue funcionando con el catálogo local.
+Las integraciones nuevas no requieren variables de entorno ni claves. Si no hay conexión,
+la app sigue funcionando con el catálogo local. El proyecto está configurado para desplegarse
+como aplicación Next.js en Vercel.
+
+## Fuentes externas y alcance
+
+- [TheCocktailDB — documentación oficial](https://www.thecocktaildb.com/api.php): referencia de la API de cócteles existente.
+- [Open Brewery DB — documentación](https://www.openbrewerydb.org/documentation): API pública utilizada para cervecerías de México.
+- [public-api-lists/public-api-lists](https://github.com/public-api-lists/public-api-lists): referencia pública consultada para revisar APIs abiertas.
+- [fabranx/Cocktails](https://github.com/fabranx/Cocktails): proyecto con licencia MIT consultado como referencia estructural; no se copió su catálogo de recetas.
+
+Las recetas locales incluidas en `lib/data/recipes-local.js` son recetas de referencia para
+el catálogo y los cálculos. Pueden variar según región, establecimiento o preferencia del
+bartender. Las recetas internacionales de TheCocktailDB continúan cargándose desde su API;
+no se incorporan como recetas locales por esa referencia.
 
 ## Precios
 

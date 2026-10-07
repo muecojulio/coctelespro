@@ -8,7 +8,7 @@ import {
   DrinkDetail,
   DrinkRail,
   MatchList,
-  CostBreakdown,
+  CostPlanner,
   PriceEditor,
   ShoppingList,
   ShareCard,
@@ -18,7 +18,7 @@ import { LOCAL_DRINKS, mergeDrinks, remoteDrinkToDrink, searchDrinks, allCategor
 import { INGREDIENTS } from '../lib/data/ingredients';
 import { EXTRA_ALIASES, rankDrinks, unlockSuggestions } from '../lib/pairing';
 import { normalizeText } from '../lib/i18n';
-import { recipeCost, partyPlan, formatMoney, CURRENCIES } from '../lib/costs';
+import { partyPlan, formatMoney, CURRENCIES } from '../lib/costs';
 
 const API = 'https://www.thecocktaildb.com/api/json/v1/1';
 const TABS = [
@@ -152,15 +152,13 @@ export default function Home() {
 
   const selectedInMenu = menu.find((entry) => entry.id === selected?.id);
 
-  const selectedCost = useMemo(() => recipeCost(selected, prices), [selected, prices]);
-
   const shareText = useMemo(() => {
     const lines = ['🍸 Cócteles Pro — plan de fiesta', `${menuPlan.people} personas · ${menuPlan.drinksTotal} bebidas`, ''];
     if (menuPlan.items.length) {
       menuPlan.items.forEach((item) => lines.push(`• ${item.drink.name}: ${item.drinks} vasos (${formatMoney(item.cost, currency)})`));
       lines.push('', 'Insumos:');
       menuPlan.shopping.forEach((item) => {
-        lines.push(`- ${item.name}: ${item.amountLabel}${item.packs ? ` (≈ ${item.packs.roundedPacks} × ${item.packs.label})` : ''} — ${formatMoney(item.cost, currency)}`);
+        lines.push(`- ${item.name}: se usan ${item.amountLabel}${item.packs ? `; comprar ${item.packs.requiredPacks} × ${item.packs.label} (≈ ${formatMoney(item.packs.purchaseCost, currency)})` : ''} — ${formatMoney(item.cost, currency)} consumido`);
       });
       lines.push('', `Total estimado: ${formatMoney(menuPlan.total, currency)}`, `Costo por persona: ${formatMoney(menuPlan.perPerson, currency)}`);
     } else {
@@ -395,10 +393,9 @@ export default function Home() {
     if (nextTab !== tab) changeTab(nextTab);
   }
 
-  const usedKeys = Array.from(new Set([
-    ...selectedCost.lines.map((line) => line.key),
-    ...menuPlan.shopping.map((item) => item.key),
-  ]));
+  const usedKeys = Array.from(new Set(
+    menuPlan.items.flatMap((item) => item.lines.map((line) => line.key)),
+  ));
 
   const panels = [
     // ── Inicio ──────────────────────────────────────────────────────────────
@@ -843,37 +840,76 @@ export default function Home() {
         <section className="card" aria-labelledby="cost-title">
           <div className="section-heading">
             <div>
-              <h2 className="card-title" id="cost-title">Ingredientes y costos</h2>
+              <h2 className="card-title" id="cost-title">Costos de tu menú</h2>
               <p className="card-description">
-                Costo real por bebida, costo por persona y precio de venta sugerido con el margen que elijas.
+                Elige uno o más cócteles, define personas y vasos por persona. Aquí ves el costo de ingredientes,
+                los envases que comprar, el ingreso sugerido y la ganancia estimada.
               </p>
             </div>
-            <label className="field-group currency-field">
-              <span className="field-label">Moneda</span>
-              <select className="select" value={currency} onChange={(event) => setCurrency(event.target.value)}>
-                {Object.entries(CURRENCIES).map(([code, config]) => (
-                  <option key={code} value={code}>{config.label}</option>
-                ))}
-              </select>
-            </label>
           </div>
 
-          <RecipePicker options={catalog} selected={selected} onSelect={pick} />
+          <div className="cost-controls">
+            <div className="cost-controls__selector">
+              <RecipePicker
+                options={catalog}
+                selected={selected}
+                onSelect={pick}
+                label="Cóctel para agregar al cálculo"
+              />
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => addToParty(selected)}
+                disabled={!selected || Boolean(selectedInMenu) || menu.length >= MAX_MENU_ITEMS}
+              >
+                {selectedInMenu
+                  ? 'Ya está incluido en el cálculo'
+                  : menu.length >= MAX_MENU_ITEMS
+                    ? `Límite de ${MAX_MENU_ITEMS} cócteles`
+                    : `Agregar ${selected?.name} al cálculo`}
+              </button>
+            </div>
+            <div className="cost-controls__settings">
+              <div className="field-group guests-field">
+                <label className="field-label" htmlFor="cost-guest-count">Número de personas</label>
+                <input
+                  id="cost-guest-count"
+                  className="input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={people}
+                  onChange={(event) => setPeople(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
+                />
+              </div>
+              <label className="field-group currency-field">
+                <span className="field-label">Moneda</span>
+                <select className="select" value={currency} onChange={(event) => setCurrency(event.target.value)}>
+                  {Object.entries(CURRENCIES).map(([code, config]) => (
+                    <option key={code} value={code}>{config.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
 
-          <CostBreakdown
-            drink={selected}
-            lines={selectedCost.lines}
-            total={selectedCost.total}
-            perDrink={selectedCost.perDrink}
-            people={people}
-            drinksPerPerson={selectedInMenu?.perPerson || 1}
+          <p className="note cost-planner-note">
+            El menú de costos se comparte con la pestaña Fiesta. Los precios y las recetas son referencias editables;
+            las compras se calculan solo con los ingredientes de los cócteles incluidos.
+          </p>
+
+          <CostPlanner
+            plan={menuPlan}
             currency={currency}
             margin={margin}
             onMarginChange={setMargin}
+            onChangePerPerson={changePerPerson}
+            onRemoveDrink={removeFromMenu}
             onOpenPrices={() => setShowPriceEditor((value) => !value)}
           />
 
-          {showPriceEditor && (
+          {showPriceEditor && menuPlan.items.length > 0 && (
             <PriceEditor
               usedKeys={usedKeys}
               prices={prices}

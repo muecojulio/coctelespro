@@ -4,7 +4,7 @@
 import { INGREDIENTS, getIngredient } from '../lib/data/ingredients.js';
 import { LOCAL_RECIPES } from '../lib/data/recipes-local.js';
 import { LOCAL_DRINKS, searchDrinks } from '../lib/drinks.js';
-import { parseAmount, recipeCost, partyPlan, formatMoney } from '../lib/costs.js';
+import { BEER_PACK_OPTIONS, parseAmount, packOf, partyPlan, partySales, recipeCost, formatMoney } from '../lib/costs.js';
 import { rankDrinks } from '../lib/pairing.js';
 
 const problems = [];
@@ -28,6 +28,19 @@ LOCAL_RECIPES.forEach((recipe) => {
   const normalized = recipe.name.toLocaleLowerCase('es');
   if (names.has(normalized)) warnings.push(`Nombre repetido: ${recipe.name}`);
   names.add(normalized);
+});
+
+// 2b. Recetas mexicanas y de cerveza solicitadas, incluidas sus variantes y alias.
+const requiredRecipeSearches = [
+  'Michelada', 'Chelada', 'Ojo Rojo', 'Chavela', 'Michelada Inglesa',
+  'Michelada de Tamarindo', 'Paloma', 'Vampiro', 'Charro Negro', 'Batanga',
+  'Cantarito', 'Cantarito con Cerveza', 'Tequila Beer', 'Margarita con Cerveza',
+  'Shandy', 'Radler', 'Black & Tan', 'Red Eye', 'Michelada de Mango',
+];
+requiredRecipeSearches.forEach((query) => {
+  if (!searchDrinks(LOCAL_DRINKS, query).length) {
+    problems.push(`No se encontró en el catálogo local la receta o alias “${query}”`);
+  }
 });
 
 // 3. Medidas que no se pueden interpretar.
@@ -66,8 +79,33 @@ const menuParty = partyPlan([
 ], 10, {});
 if (menuParty.items.length !== 2) problems.push('El menú de la fiesta no admite varias bebidas');
 if (menuParty.shopping.length <= party.shopping.length) problems.push('La lista de compras no agrega los insumos del menú completo');
+if (menuParty.items.some((item) => !Array.isArray(item.shopping) || !item.shopping.length)) {
+  problems.push('Falta una lista de compras por cóctel en el plan');
+}
 
-// 5c. Los precios editados deben cambiar el costo.
+// 5c. Tamaños de compra: cerveza, destilados, refrescos y jugos usan envases propios.
+const expectedBeerSizes = [250, 330, 355, 473, 710];
+if (BEER_PACK_OPTIONS.map((option) => option.size).join(',') !== expectedBeerSizes.join(',')) {
+  problems.push('Las presentaciones habituales de cerveza no coinciden con 250/330/355/473/710 ml');
+}
+if (packOf('Beer').size !== 355) problems.push('La cerveza no tiene una presentación base de 355 ml');
+if (packOf('Tequila').size === packOf('Beer').size) problems.push('El destilado está usando el mismo tamaño de envase que la cerveza');
+if (packOf('Grapefruit soda').size === packOf('Tequila').size) problems.push('El refresco de toronja está usando el envase de destilado');
+if (packOf('Orange juice').size === packOf('Tequila').size) problems.push('El jugo está usando el envase de destilado');
+const michelada = LOCAL_DRINKS.find((drink) => drink.id === 'mx-michelada');
+const smallCanPlan = partyPlan([{ drink: michelada, perPerson: 1 }], 2, {
+  Beer: { size: 250, price: 17, label: 'Lata 250 ml' },
+});
+const beerPurchase = smallCanPlan.items[0]?.shopping.find((item) => item.key === 'Beer');
+if (beerPurchase?.packs?.requiredPacks !== 3) {
+  problems.push('La lista de compra no redondea a envases completos de cerveza de 250 ml');
+}
+const sales = partySales(menuParty, 70);
+if (sales.items.length !== 2) problems.push('El cálculo de venta no conserva el desglose por cóctel');
+if (Math.abs(sales.profit - (sales.revenue - sales.total)) > 0.01) problems.push('La ganancia no coincide con ingreso menos costo');
+if (!(sales.revenue > sales.total)) problems.push('El ingreso sugerido debe ser mayor que el costo con recargo positivo');
+
+// 5d. Los precios editados deben cambiar el costo.
 const baseCost = recipeCost(LOCAL_DRINKS.find((drink) => drink.name === 'Margarita'), {}).perDrink;
 const cheapCost = recipeCost(LOCAL_DRINKS.find((drink) => drink.name === 'Margarita'), { Tequila: { size: 750, price: 120 } }).perDrink;
 if (!(cheapCost < baseCost)) problems.push('Editar el precio de un insumo no cambia el costo calculado');

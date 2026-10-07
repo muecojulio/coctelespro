@@ -145,8 +145,10 @@ export function SearchableCombobox({
   const [query, setQuery] = useState(selected?.strDrink || '');
   const [activeIndex, setActiveIndex] = useState(-1);
 
+  const normalizedQuery = normalizeOptionText(query.trim());
   const filteredOptions = options.filter((option) =>
-    normalizeOptionText(option.strDrink).includes(normalizeOptionText(query.trim()))
+    [option.strDrink, option.name, option.nameEn]
+      .some((value) => normalizeOptionText(value).includes(normalizedQuery))
   );
   const activeOption = activeIndex >= 0 ? filteredOptions[activeIndex] : null;
 
