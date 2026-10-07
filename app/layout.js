@@ -25,9 +25,6 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         {children}
-        <footer style={{ textAlign: 'center', padding: '8px 12px 24px' }}>
-          <a className="privacy-link" href="/privacidad">Política de privacidad</a>
-        </footer>
       </body>
     </html>
   );
