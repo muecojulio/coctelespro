@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { HorizontalRail } from './InteractionPrimitives';
-import { formatMoney, packOf, priceIsEdited, suggestedPrice } from '../../lib/costs';
+import { BEER_PACK_OPTIONS, formatMoney, packOf, partySales, priceIsEdited } from '../../lib/costs';
 import { INGREDIENTS, getIngredient } from '../../lib/data/ingredients';
 
 export function FavoriteButton({ active, onToggle, name }) {
@@ -260,53 +260,145 @@ export function MatchList({ results, filter, onFilterChange, onSelect, onAddIngr
   );
 }
 
-export function CostBreakdown({ drink, lines, total, perDrink, people, drinksPerPerson, currency, margin, onMarginChange, onOpenPrices }) {
-  if (!drink) return <p className="empty-state">Elige una bebida para ver sus costos.</p>;
-  const sale = suggestedPrice(perDrink, margin);
-  const partyDrinks = Math.max(1, people) * Math.max(1, drinksPerPerson);
+export function CostPlanner({ plan, currency, margin, onMarginChange, onChangePerPerson, onRemoveDrink, onOpenPrices }) {
+  const pricedPlan = partySales(plan, margin);
+
+  if (!pricedPlan.items.length) {
+    return (
+      <div className="cost-planner">
+        <p className="empty-state">
+          Aún no hay cócteles en el cálculo. Elige una receta arriba y agrégala para ver vasos, costos e insumos.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <h3 className="cost-recipe-title">{drink.emoji} {drink.name}</h3>
-      <p className="card-description">
-        Costo estimado por bebida con los precios de referencia de cada insumo.
-      </p>
-
-      <div className="cost-list" role="table" aria-label={`Costos de ${drink.name}`}>
-        {lines.map((line) => (
-          <div className="cost-row" role="row" key={line.key}>
-            <div role="cell">
-              <p className="cost-row__name">{line.name}</p>
-              <p className="cost-row__meta">
-                {line.scaledLabel} · {line.pack.label} {line.estimated ? '(precio estimado)' : ''}
-              </p>
-            </div>
-            <p className="cost-row__cost" role="cell">{formatMoney(line.costPerDrink, currency)}</p>
-          </div>
-        ))}
+    <div className="cost-planner">
+      <div className="cost-plan-heading">
+        <div>
+          <h3 className="subheading">Cócteles incluidos en el cálculo</h3>
+          <p className="note">
+            Ajusta los vasos por persona. Este menú se comparte con la pestaña Fiesta.
+          </p>
+        </div>
       </div>
+
+      <ul className="cost-cocktail-list">
+        {pricedPlan.items.map((item) => (
+          <li className="cost-cocktail-card" key={item.drink.id}>
+            <div className="cost-cocktail-card__head">
+              <div>
+                <h4 className="cost-cocktail-card__title">{item.drink.emoji} {item.drink.name}</h4>
+                <p className="cost-cocktail-card__meta">
+                  {item.perPerson} {item.perPerson === 1 ? 'vaso' : 'vasos'} por persona · {item.drinks} vasos para {pricedPlan.people} {pricedPlan.people === 1 ? 'persona' : 'personas'}
+                </p>
+              </div>
+              <div className="cost-cocktail-card__actions" aria-label={`Cantidad de ${item.drink.name}`}>
+                <button
+                  type="button"
+                  className="stepper"
+                  aria-label={`Quitar un vaso por persona de ${item.drink.name}`}
+                  onClick={() => onChangePerPerson(item.drink.id, -1)}
+                  disabled={item.perPerson <= 1}
+                >−</button>
+                <span className="cost-cocktail-card__count">{item.perPerson}/persona</span>
+                <button
+                  type="button"
+                  className="stepper"
+                  aria-label={`Añadir un vaso por persona de ${item.drink.name}`}
+                  onClick={() => onChangePerPerson(item.drink.id, 1)}
+                  disabled={item.perPerson >= 6}
+                >+</button>
+                <button
+                  type="button"
+                  className="remove"
+                  aria-label={`Quitar ${item.drink.name} del cálculo`}
+                  onClick={() => onRemoveDrink(item.drink.id)}
+                ><span aria-hidden="true">×</span></button>
+              </div>
+            </div>
+
+            <div className="cost-cocktail-stats">
+              <div className="cost-stat">
+                <p className="cost-stat__label">Vasos</p>
+                <p className="cost-stat__value">{item.drinks}</p>
+              </div>
+              <div className="cost-stat">
+                <p className="cost-stat__label">Costo de insumos</p>
+                <p className="cost-stat__value">{formatMoney(item.cost, currency)}</p>
+              </div>
+              <div className="cost-stat">
+                <p className="cost-stat__label">Ingreso estimado</p>
+                <p className="cost-stat__value">{formatMoney(item.revenue, currency)}</p>
+                <p className="cost-stat__meta">{formatMoney(item.salePrice, currency)} por vaso</p>
+              </div>
+              <div className="cost-stat">
+                <p className="cost-stat__label">Ganancia bruta estimada</p>
+                <p className="cost-stat__value cost-stat__value--accent">{formatMoney(item.profit, currency)}</p>
+              </div>
+            </div>
+
+            <details className="cost-cocktail-details">
+              <summary>Ingredientes y envases para {item.drinks} vasos</summary>
+              <ul className="cost-cocktail-shopping">
+                {item.shopping.map((line, index) => (
+                  <li className="cost-cocktail-shopping__row" key={`${line.key}-${index}`}>
+                    <div>
+                      <p className="cost-row__name">{line.name}</p>
+                      <p className="cost-row__meta">
+                        Se usan {line.amountLabel}{line.pack?.label ? ` · presentación ${line.pack.label}` : ''}
+                        {line.estimated ? ' · precio de referencia' : ''}
+                      </p>
+                      {line.packs ? (
+                        <p className="cost-cocktail-shopping__buy">
+                          Comprar {line.packs.requiredPacks} × {line.packs.label} · {formatMoney(line.packs.purchaseCost, currency)} aprox.
+                        </p>
+                      ) : (
+                        <p className="cost-cocktail-shopping__buy">Medida al gusto: la compra del envase no se prorratea.</p>
+                      )}
+                    </div>
+                    <p className="cost-cocktail-shopping__cost">
+                      {formatMoney(line.cost, currency)} consumido
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </li>
+        ))}
+      </ul>
 
       <div className="total-row">
-        <span>Total por bebida</span>
-        <strong>{formatMoney(perDrink, currency)}</strong>
+        <span>Resumen para {pricedPlan.people} {pricedPlan.people === 1 ? 'persona' : 'personas'} · {pricedPlan.drinksTotal} vasos</span>
+        <strong>{formatMoney(pricedPlan.total, currency)} de costo</strong>
       </div>
-
       <div className="cost-grid">
         <div className="cost-stat">
-          <p className="cost-stat__label">Para {people} {people === 1 ? 'persona' : 'personas'}</p>
-          <p className="cost-stat__value">{formatMoney(perDrink * partyDrinks / Math.max(1, people), currency)}</p>
-          <p className="cost-stat__meta">por persona ({partyDrinks} bebidas en total)</p>
+          <p className="cost-stat__label">Costo total de ingredientes</p>
+          <p className="cost-stat__value">{formatMoney(pricedPlan.total, currency)}</p>
+          <p className="cost-stat__meta">{formatMoney(pricedPlan.perPerson, currency)} por persona</p>
         </div>
         <div className="cost-stat">
-          <p className="cost-stat__label">Costo total de la tanda</p>
-          <p className="cost-stat__value">{formatMoney(perDrink * partyDrinks, currency)}</p>
-          <p className="cost-stat__meta">usando el número de personas de la pestaña Fiesta</p>
+          <p className="cost-stat__label">Ingreso estimado</p>
+          <p className="cost-stat__value">{formatMoney(pricedPlan.revenue, currency)}</p>
+        </div>
+        <div className="cost-stat">
+          <p className="cost-stat__label">Ganancia bruta estimada</p>
+          <p className="cost-stat__value cost-stat__value--accent">{formatMoney(pricedPlan.profit, currency)}</p>
+        </div>
+        <div className="cost-stat">
+          <p className="cost-stat__label">Hielo recomendado</p>
+          <p className="cost-stat__value">{pricedPlan.iceKg} kg</p>
         </div>
       </div>
 
       <h4 className="subheading">Precio de venta sugerido</h4>
+      <p className="note">
+        El precio por vaso aplica el recargo elegido sobre el costo de ingredientes. La ganancia no incluye mano de obra, renta, impuestos ni mermas.
+      </p>
       <div className="margin-control">
-        <label className="field-label" htmlFor="margin">Margen de ganancia: {margin}%</label>
+        <label className="field-label" htmlFor="margin">Recargo sobre costo: {margin}%</label>
         <input
           id="margin"
           className="range"
@@ -318,23 +410,10 @@ export function CostBreakdown({ drink, lines, total, perDrink, people, drinksPer
           onChange={(event) => onMarginChange(Number(event.target.value))}
         />
       </div>
-      <div className="cost-grid">
-        <div className="cost-stat">
-          <p className="cost-stat__label">Precio sugerido por bebida</p>
-          <p className="cost-stat__value cost-stat__value--accent">{formatMoney(sale.price, currency)}</p>
-          <p className="cost-stat__meta">ganancia {formatMoney(sale.profit, currency)} por bebida</p>
-        </div>
-        <div className="cost-stat">
-          <p className="cost-stat__label">Ganancia de la tanda</p>
-          <p className="cost-stat__value">{formatMoney(sale.profit * partyDrinks, currency)}</p>
-          <p className="cost-stat__meta">{formatMoney(sale.price * partyDrinks, currency)} de venta total</p>
-        </div>
-      </div>
-
       <button type="button" className="btn btn-secondary" onClick={onOpenPrices}>
-        Editar precios de los insumos
+        Editar precios de los ingredientes seleccionados
       </button>
-    </>
+    </div>
   );
 }
 
@@ -358,7 +437,7 @@ export function PriceEditor({ usedKeys, prices, currency, onChangePrice, onReset
         <div>
           <h4 className="subheading">Precios de los insumos</h4>
           <p className="note">
-            Ajusta el precio y el tamaño de la presentación que compras. Se guardan en este dispositivo.
+            Ajusta el precio y el tamaño de la presentación que compras. Para cerveza puedes elegir 250, 330, 355, 473 o 710 ml; al cambiar el tamaño el precio se estima proporcionalmente y puedes corregirlo. Se guarda en este dispositivo.
           </p>
         </div>
         <button type="button" className="btn btn-secondary btn-sm" onClick={onResetAll}>
@@ -402,16 +481,36 @@ export function PriceEditor({ usedKeys, prices, currency, onChangePrice, onReset
                 </p>
               </div>
               <div className="price-row__inputs">
-                <label className="field-group">
-                  <span className="field-label">Tamaño</span>
-                  <input
-                    className="input"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={pack.size}
-                    onChange={(event) => onChangePrice(item.key, { size: Number(event.target.value), price: pack.price, label: pack.label })}
-                  />
+                <label className={`field-group ${getIngredient(item.key).cat === 'cerveza' ? 'price-row__beer-size' : ''}`}>
+                  <span className="field-label">{getIngredient(item.key).cat === 'cerveza' ? 'Envase' : 'Tamaño'}</span>
+                  {getIngredient(item.key).cat === 'cerveza' ? (
+                    <select
+                      className="select"
+                      value={pack.size}
+                      onChange={(event) => {
+                        const size = Number(event.target.value);
+                        const option = BEER_PACK_OPTIONS.find((itemOption) => itemOption.size === size);
+                        const price = Math.max(1, Math.round((pack.price / pack.size) * size));
+                        onChangePrice(item.key, { size, price, label: option?.label || `${size} ml` });
+                      }}
+                    >
+                      {!BEER_PACK_OPTIONS.some((option) => option.size === Number(pack.size)) && (
+                        <option value={pack.size}>Personalizada · {pack.size} ml</option>
+                      )}
+                      {BEER_PACK_OPTIONS.map((option) => (
+                        <option key={option.size} value={option.size}>{option.size} ml</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="input"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={pack.size}
+                      onChange={(event) => onChangePrice(item.key, { size: Number(event.target.value), price: pack.price, label: pack.label })}
+                    />
+                  )}
                 </label>
                 <label className="field-group">
                   <span className="field-label">Precio</span>
@@ -477,12 +576,12 @@ export function ShoppingList({ plan, currency }) {
             <div>
               <p className="shopping-row__name">{item.name}</p>
               <p className="shopping-row__meta">
-                {item.amountLabel}
-                {item.packs ? ` · ≈ ${item.packs.roundedPacks} × ${item.packs.label}` : ''}
+                Se usan {item.amountLabel}
+                {item.packs ? ` · comprar ${item.packs.requiredPacks} × ${item.packs.label} (≈ ${formatMoney(item.packs.purchaseCost, currency)})` : ''}
               </p>
               <p className="shopping-row__meta">Para: {item.usedBy.join(', ')}</p>
             </div>
-            <p className="shopping-row__cost">{formatMoney(item.cost, currency)}</p>
+            <p className="shopping-row__cost">{formatMoney(item.cost, currency)} consumido</p>
           </li>
         ))}
       </ul>

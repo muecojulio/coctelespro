@@ -1887,3 +1887,205 @@ textarea:focus-visible,
     width: 100%;
   }
 }
+
+/* ── Planificador de costos por cóctel ────────────────────────────────────── */
+
+.cost-controls {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.9fr);
+  align-items: end;
+  gap: 14px;
+}
+
+.cost-controls__selector {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.cost-controls__selector .combobox {
+  min-width: 0;
+}
+
+.cost-controls__selector > .btn {
+  min-height: 46px;
+}
+
+.cost-controls__settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+}
+
+.cost-controls__settings .field-group {
+  min-width: 0;
+}
+
+.cost-planner-note {
+  margin-top: 12px;
+}
+
+.cost-planner {
+  margin-top: 18px;
+}
+
+.cost-plan-heading {
+  margin-bottom: 12px;
+}
+
+.cost-cocktail-list {
+  display: grid;
+  gap: 14px;
+  list-style: none;
+}
+
+.cost-cocktail-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card2);
+}
+
+.cost-cocktail-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.cost-cocktail-card__title {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 720;
+}
+
+.cost-cocktail-card__meta {
+  margin-top: 4px;
+  color: var(--text2);
+  font-size: 0.8rem;
+}
+
+.cost-cocktail-card__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cost-cocktail-card__count {
+  min-width: 70px;
+  color: var(--text2);
+  font-size: 0.76rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.cost-cocktail-stats {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 8px;
+}
+
+.cost-cocktail-stats .cost-stat {
+  padding: 11px 12px;
+}
+
+.cost-cocktail-stats .cost-stat__value {
+  font-size: 1rem;
+}
+
+.cost-cocktail-details {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.cost-cocktail-details summary {
+  padding: 12px 2px 4px;
+  color: var(--accent);
+  font-size: 0.86rem;
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.cost-cocktail-shopping {
+  margin-top: 8px;
+  display: grid;
+  gap: 7px;
+  list-style: none;
+}
+
+.cost-cocktail-shopping__row {
+  padding: 10px 11px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.cost-cocktail-shopping__buy {
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 640;
+  line-height: 1.45;
+}
+
+.cost-cocktail-shopping__cost {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.price-row__inputs .price-row__beer-size {
+  width: 130px;
+}
+
+@media (max-width: 760px) {
+  .cost-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .cost-controls__selector {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cost-controls__selector > .btn {
+    width: 100%;
+  }
+
+  .cost-controls__settings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cost-cocktail-card__head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cost-cocktail-card__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .cost-cocktail-shopping__row {
+    flex-direction: column;
+  }
+
+  .cost-cocktail-shopping__cost {
+    text-align: left;
+  }
+}
