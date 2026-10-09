@@ -94,5 +94,14 @@ pestaña **Costos**. Lo editado se guarda solo en el dispositivo (`localStorage`
 
 ## Privacidad
 
-Ruta `/privacidad`. Los datos (ingredientes, favoritos, historial, precios y preferencias)
-no salen del dispositivo: no hay cuentas ni backend de usuarios.
+Pestaña **Privacidad** dentro de la app (política completa y actualizada ahí). Los datos
+(ingredientes, favoritos, historial, precios y preferencias) no salen del dispositivo: no hay
+cuentas, backend de usuarios, cookies de rastreo ni analíticas. Los códigos QR se generan en el
+propio dispositivo y las tipografías están incluidas en la app (sin CDNs).
+
+## Seguridad
+
+- Dependencias auditadas (`npm audit`) sin vulnerabilidades conocidas.
+- CSP estricta sin `unsafe-eval` en producción, más cabeceras HSTS, `X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` y `object-src 'none'`.
+- Las rutas de API validan y limitan la entrada antes de consultar servicios externos.
