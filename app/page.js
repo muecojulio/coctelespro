@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import './globals.css';
 import { ActionButton, HorizontalRail, SearchableCombobox } from './components/InteractionPrimitives';
 import { SectionTabs, TabPanel } from './components/AccessibleTabs';
@@ -938,39 +939,34 @@ export default function Home() {
             </div>
           </div>
 
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+          <div className="install-layout">
             {(() => {
               const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://coctelespro.vercel.app';
-              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=${encodeURIComponent(appUrl)}`;
               return (
                 <>
-                  <img
-                    src={qrUrl}
-                    alt="Código QR para instalar Cócteles Pro"
-                    style={{ width: 260, height: 260, maxWidth: '100%', borderRadius: 12, background: '#fff', padding: 8 }}
-                  />
-                  <p style={{ marginTop: 12, color: 'var(--text2)', wordBreak: 'break-all' }}>
-                    {appUrl}
-                  </p>
+                  <div className="install-qr">
+                    <QRCodeSVG value={appUrl} size={216} bgColor="#ffffff" fgColor="#14092b" level="M" />
+                  </div>
+                  <p className="install-url">{appUrl}</p>
                 </>
               );
             })()}
           </div>
 
           <h3 className="subheading">Cómo instalarla</h3>
-          <div className="install-instructions" style={{ display: 'grid', gap: 12 }}>
-            <div className="card" style={{ padding: 16, background: 'rgba(255,255,255,0.04)' }}>
-              <p style={{ fontWeight: 600, marginBottom: 6 }}>📱 Android (Chrome)</p>
-              <ol style={{ paddingLeft: 20, margin: 0, color: 'var(--text2)', lineHeight: 1.6 }}>
+          <div className="install-instructions">
+            <div className="install-card">
+              <p className="install-card__title"><span aria-hidden="true">🤖</span> Android (Chrome)</p>
+              <ol className="install-steps">
                 <li>Abre la app en Chrome.</li>
                 <li>Toca el menú (⋮) en la esquina superior derecha.</li>
                 <li>Selecciona "Instalar aplicación" o "Añadir a pantalla de inicio".</li>
                 <li>Confirma y listo: funcionará sin conexión.</li>
               </ol>
             </div>
-            <div className="card" style={{ padding: 16, background: 'rgba(255,255,255,0.04)' }}>
-              <p style={{ fontWeight: 600, marginBottom: 6 }}>🍎 iPhone / iPad (Safari)</p>
-              <ol style={{ paddingLeft: 20, margin: 0, color: 'var(--text2)', lineHeight: 1.6 }}>
+            <div className="install-card">
+              <p className="install-card__title"><span aria-hidden="true">🍎</span> iPhone / iPad (Safari)</p>
+              <ol className="install-steps">
                 <li>Abre la app en Safari.</li>
                 <li>Toca el botón Compartir (⬆️) en la barra inferior.</li>
                 <li>Elige "Añadir a la pantalla de inicio".</li>
@@ -979,8 +975,9 @@ export default function Home() {
             </div>
           </div>
 
-          <p className="note" style={{ marginTop: 16 }}>
+          <p className="note">
             La app funciona completamente sin internet una vez cargada; tus datos se guardan solo en tu dispositivo.
+            El código QR se genera en tu propio dispositivo, sin servicios externos.
           </p>
         </section>
       </div>
@@ -990,34 +987,89 @@ export default function Home() {
     (
       <div key="privacidad">
         <section className="card" aria-labelledby="privacy-title">
-          <div className="section-heading">
+          <div className="privacy-hero">
+            <div className="privacy-hero__icon" aria-hidden="true">🛡️</div>
             <div>
-              <h2 className="card-title" id="privacy-title">Política de privacidad</h2>
-              <p className="card-description">Última actualización: 7 de octubre de 2026</p>
+              <h2 className="privacy-hero__title" id="privacy-title">Política de privacidad</h2>
+              <p className="privacy-hero__text">
+                Última actualización: 9 de octubre de 2026 · Sin cuentas, sin rastreadores, sin publicidad.
+              </p>
             </div>
           </div>
 
-          <h3 className="subheading">Responsable</h3>
-          <p style={{ color: 'var(--text2)' }}>
-            Cócteles Pro opera de forma local en tu navegador.
-          </p>
+          <div className="privacy-sections">
+            <div className="privacy-section">
+              <h3 className="privacy-section__title"><span aria-hidden="true">👤</span> Responsable</h3>
+              <p className="privacy-section__body">
+                Cócteles Pro es una aplicación de código abierto que funciona de forma local en tu navegador.
+                No hay servidor de usuarios, cuentas ni base de datos de personas.
+              </p>
+            </div>
 
-          <h3 className="subheading">Datos que se guardan</h3>
-          <p style={{ color: 'var(--text2)' }}>
-            Ingredientes, favoritos, historial, precios y preferencias viven solo en <code>localStorage</code> de este dispositivo.
-            No hay cuenta ni backend de usuarios. Las traducciones del catálogo internacional se hacen en tu propio navegador.
-          </p>
+            <div className="privacy-section">
+              <h3 className="privacy-section__title"><span aria-hidden="true">💾</span> Datos que se guardan</h3>
+              <p className="privacy-section__body">
+                Tus ingredientes, favoritos, historial, precios editados, menú de fiesta y preferencias (tema,
+                moneda, personas) se guardan únicamente en el <code>localStorage</code> de este dispositivo.
+                Nunca se suben a internet. Puedes borrarlos en cualquier momento desde la configuración del
+                navegador (Borrar datos del sitio) o desinstalando la app.
+              </p>
+            </div>
 
-          <h3 className="subheading">APIs de terceros</h3>
-          <p style={{ color: 'var(--text2)' }}>
-            TheCocktailDB, Open Brewery DB, SampleAPIs, Wikipedia REST y QR Server. Las consultas pueden revelar el nombre
-            de la bebida al proveedor. No se envían precios ni ingredientes personales.
-          </p>
+            <div className="privacy-section">
+              <h3 className="privacy-section__title"><span aria-hidden="true">🌐</span> Servicios externos que consulta la app</h3>
+              <p className="privacy-section__body">
+                Cuando hay conexión, la app consulta estas APIs públicas para ampliar el catálogo y las
+                descripciones. Las consultas pueden revelar el término buscado (por ejemplo el nombre de una
+                bebida) al proveedor, pero nunca tus ingredientes personales, precios ni datos de la fiesta:
+              </p>
+              <ul className="install-steps">
+                <li><strong>TheCocktailDB</strong> — recetas internacionales.</li>
+                <li><strong>Wikipedia REST</strong> — resúmenes de bebidas.</li>
+                <li><strong>Open Brewery DB</strong> y <strong>SampleAPIs</strong> — cervezas y cervecerías de referencia.</li>
+              </ul>
+            </div>
 
-          <div style={{ marginTop: 20, padding: 16, borderRadius: 8, background: 'rgba(233,69,96,0.1)', border: '1px solid rgba(233,69,96,0.3)' }}>
-            <p style={{ margin: 0, fontSize: '0.95em' }}>
-              🔐 Ninguna información personal sale de tu teléfono o computadora.
-            </p>
+            <div className="privacy-section">
+              <h3 className="privacy-section__title"><span aria-hidden="true">🚫</span> Lo que NO hacemos</h3>
+              <p className="privacy-section__body">
+                No usamos cookies de rastreo, analíticas, publicidad ni perfiles de usuario.
+                Los códigos QR (resumen de compras e instalación) se generan en tu dispositivo con
+                <code>qrcode.react</code>, sin enviar datos a servicios externos. Las tipografías del diseño
+                están incluidas en la app: no se descargan de CDNs de terceros.
+              </p>
+            </div>
+
+            <div className="privacy-section">
+              <h3 className="privacy-section__title"><span aria-hidden="true">🔐</span> Seguridad</h3>
+              <p className="privacy-section__body">
+                Aplicamos una política de seguridad de contenidos (CSP) estricta, cabeceras de seguridad
+                (HSTS, X-Frame-Options, Referrer-Policy), y las consultas a APIs pasan por validación en
+                nuestras rutas intermedias. Dependencias auditadas sin vulnerabilidades conocidas.
+              </p>
+            </div>
+
+            <div className="privacy-section">
+              <h3 className="privacy-section__title"><span aria-hidden="true">🧑‍⚖️</span> Tus derechos</h3>
+              <p className="privacy-section__body">
+                Como tus datos nunca salen del dispositivo, tú tienes el control total: puedes consultarlos,
+                corregirlos o eliminarlos borrando el almacenamiento del sitio. Si tienes preguntas sobre esta
+                política, abre un reporte en el repositorio del proyecto.
+              </p>
+            </div>
+
+            <div className="privacy-section">
+              <h3 className="privacy-section__title"><span aria-hidden="true">🔄</span> Cambios a esta política</h3>
+              <p className="privacy-section__body">
+                Cualquier actualización se publicará en esta misma pestaña con su fecha. Historial:
+                9 de octubre de 2026 (versión ampliada y reestructurada) · 7 de octubre de 2026 (versión inicial).
+              </p>
+            </div>
+          </div>
+
+          <div className="privacy-highlight">
+            <span className="privacy-highlight__emoji" aria-hidden="true">🔐</span>
+            <p>Ninguna información personal sale de tu teléfono o computadora. Bebe con moderación. 🍹</p>
           </div>
         </section>
       </div>
@@ -1027,7 +1079,10 @@ export default function Home() {
   return (
     <div className="app-container">
       <header className="header">
-        <h1>Cócteles Pro</h1>
+        <h1>
+          <span className="header__logo" aria-hidden="true">🍹</span>
+          <span className="gradient-text">Cócteles Pro</span>
+        </h1>
         <div className="header-actions">
           <span className="theme-caption" aria-hidden="true">Tema</span>
           <button

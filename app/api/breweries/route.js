@@ -47,7 +47,7 @@ export async function GET() {
     url.searchParams.set('per_page', '10');
     url.searchParams.set('by_country', 'Mexico');
     const res = await fetch(url.toString(), {
-      headers: { 'User-Agent': 'coctelespro/1.2' },
+      headers: { 'User-Agent': 'coctelespro/1.3' },
       next: { revalidate: 3600 },
     });
     if (!res.ok) {

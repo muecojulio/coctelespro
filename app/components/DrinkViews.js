@@ -121,7 +121,7 @@ export function DrinkDetail({ drink, wiki, isFavorite, onToggleFavorite, onAddTo
           {wiki.url && (
             <>
               {' '}
-              <a className="inline-link" href={wiki.url} target="_blank" rel="noreferrer">Ver en Wikipedia</a>
+              <a className="inline-link" href={wiki.url} target="_blank" rel="noopener noreferrer">Ver en Wikipedia</a>
             </>
           )}
         </p>

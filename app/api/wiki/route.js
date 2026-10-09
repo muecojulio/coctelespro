@@ -3,10 +3,22 @@ export const dynamic = 'force-dynamic';
 // Devuelve el resumen de Wikipedia en español para una bebida.
 // Si el título en español no existe, intenta con el nombre original
 // (por ejemplo el nombre en inglés del catálogo internacional).
+
+const MAX_TITLE_LENGTH = 120;
+
+// Acepta letras (cualquier idioma), números, espacios y puntuación habitual de
+// títulos; rechaza caracteres de control y símbolos raros para evitar abusos.
+function sanitizeTitle(value) {
+  const clean = String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  if (!clean || clean.length > MAX_TITLE_LENGTH) return null;
+  if (!/^[\p{L}\p{N} .,'&()+\-–—:!?¡¿%/]+$/u.test(clean)) return null;
+  return clean;
+}
+
 export async function GET(request) {
   const params = new URL(request.url).searchParams;
   const candidates = [params.get('title'), params.get('fallback')]
-    .map((value) => String(value || '').trim())
+    .map(sanitizeTitle)
     .filter(Boolean);
 
   if (!candidates.length) return Response.json({ error: 'missing_title' }, { status: 400 });
@@ -15,7 +27,7 @@ export async function GET(request) {
     try {
       const url = new URL(`https://es.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(candidate)}`);
       const res = await fetch(url.toString(), {
-        headers: { 'User-Agent': 'coctelespro/1.2 (https://github.com/muecojulio/coctelespro)' },
+        headers: { 'User-Agent': 'coctelespro/1.3 (https://github.com/muecojulio/coctelespro)' },
         next: { revalidate: 86400 },
       });
       if (!res.ok) continue;

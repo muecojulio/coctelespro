@@ -1,3 +1,9 @@
+import '@fontsource/fredoka/500.css';
+import '@fontsource/fredoka/600.css';
+import '@fontsource/nunito/400.css';
+import '@fontsource/nunito/700.css';
+import '@fontsource/nunito/800.css';
+
 export const metadata = {
   title: 'Cócteles Pro - Calculadora de Bebidas',
   description: 'App para preparar cócteles con lo que tienes, calcular cantidades y costos',
@@ -12,8 +18,19 @@ export const metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#1a1a2e',
+  themeColor: '#14092b',
 };
+
+function AuroraBackground() {
+  return (
+    <div className="aurora-bg" aria-hidden="true">
+      <div className="aurora-blob aurora-blob--1" />
+      <div className="aurora-blob aurora-blob--2" />
+      <div className="aurora-blob aurora-blob--3" />
+      <div className="aurora-sparkles" />
+    </div>
+  );
+}
 
 export default function RootLayout({ children }) {
   return (
@@ -24,6 +41,7 @@ export default function RootLayout({ children }) {
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body>
+        <AuroraBackground />
         {children}
       </body>
     </html>

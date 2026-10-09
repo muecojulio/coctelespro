@@ -12,7 +12,7 @@ function parsePrice(value) {
 export async function GET() {
   try {
     const res = await fetch('https://api.sampleapis.com/beers/ale', {
-      headers: { 'User-Agent': 'coctelespro/1.2' },
+      headers: { 'User-Agent': 'coctelespro/1.3' },
       next: { revalidate: 3600 },
     });
     if (!res.ok) {
